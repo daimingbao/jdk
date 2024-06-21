@@ -166,6 +166,8 @@ void BiasedLocking::single_revoke_at_safepoint(oop obj, bool is_bulk, JavaThread
       log_info(biasedlocking)("  (Skipping revocation of object " INTPTR_FORMAT
                               ", mark " INTPTR_FORMAT ", type %s"
                               ", requesting thread " INTPTR_FORMAT
+
+
                               " because it's no longer biased)",
                               p2i((void *)obj), mark.value(),
                               obj->klass()->external_name(),
@@ -757,8 +759,11 @@ void BiasedLocking::revoke(Handle obj, TRAPS) {
     // efficiently enough that we should not cause these revocations to
     // update the heuristics because doing so may cause unwanted bulk
     // revocations (which are expensive) to occur.
+
+    //获取markword
     markWord mark = obj->mark();
 
+//是否有偏向锁字段
     if (!mark.has_bias_pattern()) {
       return;
     }
@@ -772,6 +777,8 @@ void BiasedLocking::revoke(Handle obj, TRAPS) {
       // the bias of the object.
       markWord biased_value       = mark;
       markWord unbiased_prototype = markWord::prototype().set_age(mark.age());
+
+      //cas设置偏向锁标志
       markWord res_mark = obj->cas_set_mark(unbiased_prototype, mark);
       if (res_mark == biased_value) {
         return;
@@ -815,6 +822,7 @@ void BiasedLocking::revoke(Handle obj, TRAPS) {
       JavaThread *blt = mark.biased_locker();
       assert(blt != NULL, "invariant");
       if (blt == THREAD) {
+      //消除偏向锁
         // A thread is trying to revoke the bias of an object biased
         // toward it, again likely due to an identity hash code
         // computation. We can again avoid a safepoint/handshake in this case

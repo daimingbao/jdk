@@ -263,7 +263,9 @@ bool ObjectSynchronizer::quick_enter(oop obj, Thread* self,
 // changed. The implementation is extremely sensitive to race condition. Be careful.
 
 void ObjectSynchronizer::enter(Handle obj, BasicLock* lock, TRAPS) {
+//判断是否使用偏向锁
   if (UseBiasedLocking) {
+  //为什么需要判断是否正在安全点
     if (!SafepointSynchronize::is_at_safepoint()) {
       BiasedLocking::revoke(obj, THREAD);
     } else {
@@ -271,12 +273,16 @@ void ObjectSynchronizer::enter(Handle obj, BasicLock* lock, TRAPS) {
     }
   }
 
+  //锁对象的
   markWord mark = obj->mark();
   assert(!mark.has_bias_pattern(), "should not see bias pattern here");
 
+//markword 没有锁定
   if (mark.is_neutral()) {
     // Anticipate successful CAS -- the ST of the displaced mark must
     // be visible <= the ST performed by the CAS.
+
+    //设置锁的markword
     lock->set_displaced_header(mark);
     if (mark == obj()->cas_set_mark(markWord::from_pointer(lock), mark)) {
       return;
@@ -295,6 +301,8 @@ void ObjectSynchronizer::enter(Handle obj, BasicLock* lock, TRAPS) {
   // must be non-zero to avoid looking like a re-entrant lock,
   // and must not look locked either.
   lock->set_displaced_header(markWord::unused_mark());
+
+  //重量级锁
   inflate(THREAD, obj(), inflate_cause_monitor_enter)->enter(THREAD);
 }
 
@@ -1283,6 +1291,8 @@ void ObjectSynchronizer::inflate_helper(oop obj) {
   inflate(Thread::current(), obj, inflate_cause_vm_internal);
 }
 
+
+//重量级别锁入口
 ObjectMonitor* ObjectSynchronizer::inflate(Thread* self,
                                            oop object,
                                            const InflateCause cause) {

@@ -458,6 +458,8 @@ JRT_ENTRY(void, InterpreterRuntime::throw_ArrayIndexOutOfBoundsException(JavaThr
   THROW_MSG(vmSymbols::java_lang_ArrayIndexOutOfBoundsException(), ss.as_string());
 JRT_END
 
+
+//数组越界异常处理
 JRT_ENTRY(void, InterpreterRuntime::throw_ClassCastException(
   JavaThread* thread, oopDesc* obj))
 
@@ -470,7 +472,7 @@ JRT_ENTRY(void, InterpreterRuntime::throw_ClassCastException(
     note_trap(thread, Deoptimization::Reason_class_check, CHECK);
   }
 
-  // create exception
+  // create exception //
   THROW_MSG(vmSymbols::java_lang_ClassCastException(), message);
 JRT_END
 
@@ -771,6 +773,8 @@ JRT_ENTRY_NO_ASYNC(void, InterpreterRuntime::monitorenter(JavaThread* thread, Ba
   Handle h_obj(thread, elem->obj());
   assert(Universe::heap()->is_in_or_null(h_obj()),
          "must be NULL or an object");
+
+         //开始获取锁
   ObjectSynchronizer::enter(h_obj, elem->lock(), CHECK);
   assert(Universe::heap()->is_in_or_null(elem->obj()),
          "must be NULL or an object");

@@ -178,6 +178,10 @@ class markWord {
   // by the lower-level CAS-based locking code, although the runtime
   // fixes up biased locks to be compatible with it when a bias is
   // revoked.
+
+
+  //inline intptr_t mask_bits      (intptr_t  x, intptr_t m) { return x & m; }
+
   bool has_bias_pattern() const {
     return (mask_bits(value(), biased_lock_mask_in_place) == biased_lock_pattern);
   }
@@ -220,7 +224,10 @@ class markWord {
   bool is_marked()   const {
     return (mask_bits(value(), lock_mask_in_place) == marked_value);
   }
-  bool is_neutral()  const { return (mask_bits(value(), biased_lock_mask_in_place) == unlocked_value); }
+  bool is_neutral()  const {
+   return (mask_bits(value(), biased_lock_mask_in_place) == unlocked_value);
+
+    }
 
   // Special temporary state of the markWord while being inflated.
   // Code that looks at mark outside a lock need to take this into account.

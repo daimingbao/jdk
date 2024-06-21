@@ -144,13 +144,16 @@ class ObjectMonitor {
                         sizeof(ObjectMonitor *));
   void* volatile _owner;            // pointer to owning thread OR BasicLock
   volatile jlong _previous_owner_tid;  // thread id of the previous owner of the monitor
+  //重入次数 和aqs一样，也是通过volatile修饰
   volatile intx _recursions;        // recursion count, 0 for first entry
   ObjectWaiter* volatile _EntryList;  // Threads blocked on entry or reentry.
                                       // The list is actually composed of WaitNodes,
                                       // acting as proxies for Threads.
 
   ObjectWaiter* volatile _cxq;      // LL of recently-arrived threads blocked on entry.
+  //下一个可能需要被唤醒的线程  继承人推定线程-用于徒劳的唤醒节流
   Thread* volatile _succ;           // Heir presumptive thread - used for futile wakeup throttling
+  //一个专门负责 唤醒其它线程的线程
   Thread* volatile _Responsible;
 
   volatile int _Spinner;            // for exit->spinner handoff optimization

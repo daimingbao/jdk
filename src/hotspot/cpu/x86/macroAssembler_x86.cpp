@@ -1094,6 +1094,7 @@ void MacroAssembler::reserved_stack_check() {
     bind(no_reserved_zone_enabling);
 }
 
+//加偏向锁
 int MacroAssembler::biased_locking_enter(Register lock_reg,
                                          Register obj_reg,
                                          Register swap_reg,
@@ -1106,6 +1107,7 @@ int MacroAssembler::biased_locking_enter(Register lock_reg,
   assert(swap_reg == rax, "swap_reg must be rax for cmpxchgq");
   assert(tmp_reg != noreg, "tmp_reg must be supplied");
   assert_different_registers(lock_reg, obj_reg, swap_reg, tmp_reg);
+  //判断锁标记位
   assert(markWord::age_shift == markWord::lock_bits + markWord::biased_lock_bits, "biased locking makes assumptions about bit layout");
   Address mark_addr      (obj_reg, oopDesc::mark_offset_in_bytes());
   NOT_LP64( Address saved_mark_addr(lock_reg, 0); )
@@ -1113,6 +1115,8 @@ int MacroAssembler::biased_locking_enter(Register lock_reg,
   if (PrintBiasedLockingStatistics && counters == NULL) {
     counters = BiasedLocking::counters();
   }
+  // 偏向锁定 查看当前锁是否偏向我们的线程以及 epoch 是否仍然有效
+  //注意，运行时保证 JavaThread 指针的足够对齐以允许将年龄置于低位首先检查是否甚至为此对象启用了偏向
   // Biased locking
   // See whether the lock is currently biased toward our thread and
   // whether the epoch is still valid
@@ -1126,12 +1130,17 @@ int MacroAssembler::biased_locking_enter(Register lock_reg,
     movptr(swap_reg, mark_addr);
   }
   movptr(tmp_reg, swap_reg);
+  //偏向标记位置换 加偏向锁
   andptr(tmp_reg, markWord::biased_lock_mask_in_place);
   cmpptr(tmp_reg, markWord::biased_lock_pattern);
   jcc(Assembler::notEqual, cas_label);
+
+  //偏差模式存在于对象的对象头中。需要检查偏差所有者（获得偏向锁的线程）和纪元epoch是否仍然是当前的。
   // The bias pattern is present in the object's header. Need to check
   // whether the bias owner and the epoch are both still current.
 #ifndef _LP64
+//请注意，因为 x86_32 上没有当前线程寄存器，我们需要存储从对象中读出的标记字，
+//以避免重新加载它并需要重新检查下面的不变量。这家厂商很不幸，但它使整体代码更短更简单。
   // Note that because there is no current thread register on x86_32 we
   // need to store off the mark word we read out of the object to
   // avoid reloading it and needing to recheck invariants below. This
@@ -1674,6 +1683,7 @@ void MacroAssembler::rtm_inflated_locking(Register objReg, Register boxReg, Regi
 //    FailureLabel
 
 
+// 加锁总入口
 // obj: object to lock
 // box: on-stack box address (displaced header location) - KILLED
 // rax,: tmp -- KILLED
@@ -1700,22 +1710,23 @@ void MacroAssembler::fast_lock(Register objReg, Register boxReg, Register tmpReg
     atomic_incl(ExternalAddress((address)counters->total_entry_count_addr()), scrReg);
   }
 
+//我们在 fast_lock 中可能遇到的情况
   // Possible cases that we'll encounter in fast_lock
   // ------------------------------------------------
-  // * Inflated
-  //    -- unlocked
-  //    -- Locked
-  //       = by self
-  //       = by other
-  // * biased
-  //    -- by Self
-  //    -- by other
-  // * neutral
-  // * stack-locked
-  //    -- by self
-  //       = sp-proximity test hits
-  //       = sp-proximity test generates false-negative
-  //    -- by other
+  // * Inflated //膨胀
+  //    -- unlocked //无锁状态
+  //    -- Locked //锁了
+  //       = by self //被当前线程锁了
+  //       = by other //被其他线程锁了，
+  // * biased //偏向锁
+  //    -- by Self //自己偏向
+  //    -- by other //其他线程偏向
+  // * neutral //中立的
+  // * stack-locked //堆栈锁定
+  //    -- by self //自己锁定
+  //       = sp-proximity test hits //接近测试命中
+  //       = sp-proximity test generates false-negative //产生假阴性
+  //    -- by other //其他线程锁定
   //
 
   Label IsInflated, DONE_LABEL;
@@ -1727,6 +1738,7 @@ void MacroAssembler::fast_lock(Register objReg, Register boxReg, Register tmpReg
   // at [FETCH], below, will never observe a biased encoding (*101b).
   // If this invariant is not held we risk exclusion (safety) failure.
   if (UseBiasedLocking && !UseOptoBiasInlining) {
+  //尝试偏向锁进入
     biased_locking_enter(boxReg, objReg, tmpReg, scrReg, false, DONE_LABEL, NULL, counters);
   }
 

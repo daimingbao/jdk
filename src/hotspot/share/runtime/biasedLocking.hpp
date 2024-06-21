@@ -187,12 +187,13 @@ public:
   // for the first part of a run and enabling it later
   static bool enabled();
 
+//这应该由 JavaThreads 调用以撤销对象的偏见
   // This should be called by JavaThreads to revoke the bias of an object
   static void revoke(Handle obj, TRAPS);
-
+//这只能由 JavaThread 调用以撤销拥有对象的偏差。
   // This must only be called by a JavaThread to revoke the bias of an owned object.
   static void revoke_own_lock(Handle obj, TRAPS);
-
+//在安全点撤销
   static void revoke_at_safepoint(Handle obj);
 
   // These are used by deoptimization to ensure that monitors on the stack
